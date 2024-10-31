@@ -54,6 +54,23 @@ display_menu:
     call print_string
     jmp wait_for_choice
 
+get_screen_info:
+    MOV ah, 0x0F          ; BIOS interrupt to get video mode
+    int 0x10              ; Result in AL (mode) and other registers
+
+    MOV si, screen_info_msg
+    call print_string
+
+    MOV si, video_mode_msg
+    call print_string
+    ADD al, '0'           ; Convert mode number to ASCII
+    call print_char
+
+    MOV si, linefeed_msg
+    call print_string
+
+    RET
+
 ; Clear the screen by writing spaces across it
 cls:
     MOV ah, 0x06          ; BIOS scroll up function
