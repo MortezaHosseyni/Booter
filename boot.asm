@@ -1,13 +1,25 @@
 ; A simple bootloader with a text-based menu
 
-BITS 16
-ORG 0x7C00                ; Bootloader will load here by BIOS
+[BITS 16]
+[ORG 0x7C00]              ; Bootloader will load here by BIOS
 
 start:
+    cli                   ; Clear interrupts while setting up
     MOV ax, 0x07C0        ; Set up stack
     ADD ax, 0x200
     MOV ss, ax
     MOV sp, 0x200
+
+    MOV ax, 0x0000        ; Set up data segments
+    MOV ds, ax
+    MOV es, ax
+
+    sti                   ; Enable interrupts again
+
+    ; Initialize video mode (80x25 text mode)
+    MOV ah, 0x00          ; BIOS video mode function
+    MOV al, 0x03          ; 80x25 text mode
+    int 0x10
 
     call cls              ; Clear screen
     call display_menu     ; Show menu options
@@ -31,7 +43,8 @@ about_os:
     call cls
     MOV si, about_msg
     call print_string
-    jmp display_menu
+    call wait_for_key     ; Wait for key press to return to menu
+    jmp display_menu      ; Go back to the menu after displaying
 
 system_info:
     call cls
@@ -40,15 +53,15 @@ system_info:
 
     ; Detect if CPUID is supported
     pushfd                 ; Save original EFLAGS
-    POP ax                 ; Load EFLAGS into AX
+    pop ax                 ; Load EFLAGS into AX
     MOV cx, ax             ; Copy original EFLAGS
-    xor ax, 1 << 21        ; Toggle bit 21 of EFLAGS
-    PUSH ax
+    xor ax, 0x2000         ; Toggle bit 13 (a safe bit to test)
+    push ax
     popfd                  ; Update EFLAGS with modified value
     pushfd
-    POP ax                 ; Load updated EFLAGS
+    pop ax                 ; Load updated EFLAGS
     xor ax, cx
-    jz no_cpuid            ; If no change in bit 21, CPUID unsupported
+    jz no_cpuid            ; If no change, CPUID unsupported
 
     ; CPUID is supported
     MOV ax, 0              ; CPUID function 0 (vendor string)
@@ -60,27 +73,36 @@ system_info:
     call print_string
     MOV si, vendor
     call print_string
+    call wait_for_key      ; Wait for key press to return to menu
     jmp display_menu
 
 no_cpuid:
     MOV si, no_cpuid_msg
     call print_string
+    call wait_for_key      ; Wait for key press to return to menu
     jmp display_menu
 
 screen_info:
     call cls
     call get_screen_info
+    call wait_for_key      ; Wait for key press to return to menu
     jmp display_menu
+
+; Subroutine to wait for a key press
+wait_for_key:
+    MOV ah, 0              ; BIOS interrupt to wait for a key press
+    int 0x16
+    RET
 
 shutdown:
     cli                   ; Disable interrupts
     hlt                   ; Halt the system
 
 display_menu:
-    call cls
+    call cls              ; Clear the screen before displaying the menu
     MOV si, menu_msg
     call print_string
-    jmp wait_for_choice
+    jmp wait_for_choice   ; Loop back to waiting for choice
 
 get_screen_info:
     MOV ah, 0x0F          ; BIOS interrupt to get video mode
@@ -127,18 +149,18 @@ print_char:
     int 0x10
     RET
 
-; Menu and message strings
+; Menu and message strings (each properly null-terminated)
 menu_msg db "++ BOOTER ++", 0x0D, 0x0A
-         db "1. About OS", 0x0D, 0x0A
-         db "2. System Information", 0x0D, 0x0A
-         db "3. Screen Information", 0x0D, 0x0A
+         db "1. About", 0x0D, 0x0A
+         db "2. Sys Info", 0x0D, 0x0A
+         db "3. Screen Info", 0x0D, 0x0A
          db "4. Shutdown", 0x0D, 0x0A, 0
-about_msg db "This is a simple OS bootloader created for learning purposes. | Morteza Hosseini", 0x0D, 0x0A, 0
-sys_info_msg db "System Info:", 0x0D, 0x0A, 0
-no_cpuid_msg db "CPUID not supported on this CPU.", 0x0D, 0x0A, 0
-vendor_msg db "CPU Vendor: ", 0
-screen_info_msg db "Screen Information:", 0x0D, 0x0A, 0
-video_mode_msg db "Video Mode: ", 0
+about_msg db "Simple OS Bootloader | Morteza Hosseini", 0x0D, 0x0A, 0
+sys_info_msg db "Sys Info:", 0x0D, 0x0A, 0
+no_cpuid_msg db "CPUID not supported.", 0x0D, 0x0A, 0
+vendor_msg db "Vendor: ", 0
+screen_info_msg db "Screen Info:", 0x0D, 0x0A, 0
+video_mode_msg db "Mode: ", 0
 linefeed_msg db 0x0D, 0x0A, 0
 
 vendor db "Unknown", 0, 0, 0, 0, 0, 0
