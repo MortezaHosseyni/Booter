@@ -12,6 +12,21 @@ start:
     call cls              ; Clear screen
     call display_menu     ; Show menu options
 
+wait_for_choice:
+    MOV ah, 0             ; BIOS interrupt to wait for a keypress
+    int 0x16              ; Result in AL
+
+    CMP al, '1'           ; Check if '1' was pressed
+    je about_os
+    CMP al, '2'           ; Check if '2' was pressed
+    je system_info
+    CMP al, '3'           ; Check if '3' was pressed
+    je screen_info
+    CMP al, '4'           ; Check if '4' was pressed
+    je shutdown
+
+    jmp wait_for_choice   ; Loop if invalid choice
+
 about_os:
     call cls
     MOV si, about_msg
@@ -32,6 +47,12 @@ screen_info:
 shutdown:
     cli                   ; Disable interrupts
     hlt                   ; Halt the system
+
+display_menu:
+    call cls
+    MOV si, menu_msg
+    call print_string
+    jmp wait_for_choice
 
 ; Clear the screen by writing spaces across it
 cls:
