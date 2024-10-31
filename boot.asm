@@ -12,6 +12,27 @@ start:
     call cls              ; Clear screen
     call display_menu     ; Show menu options
 
+about_os:
+    call cls
+    MOV si, about_msg
+    call print_string
+    jmp display_menu
+
+system_info:
+    call cls
+    MOV si, sys_info_msg
+    call print_string
+    jmp display_menu
+
+screen_info:
+    call cls
+    call get_screen_info
+    jmp display_menu
+
+shutdown:
+    cli                   ; Disable interrupts
+    hlt                   ; Halt the system
+
 ; Clear the screen by writing spaces across it
 cls:
     MOV ah, 0x06          ; BIOS scroll up function
