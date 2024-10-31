@@ -37,6 +37,34 @@ system_info:
     call cls
     MOV si, sys_info_msg
     call print_string
+
+    ; Detect if CPUID is supported
+    pushfd                 ; Save original EFLAGS
+    POP ax                 ; Load EFLAGS into AX
+    MOV cx, ax             ; Copy original EFLAGS
+    xor ax, 1 << 21        ; Toggle bit 21 of EFLAGS
+    PUSH ax
+    popfd                  ; Update EFLAGS with modified value
+    pushfd
+    POP ax                 ; Load updated EFLAGS
+    xor ax, cx
+    jz no_cpuid            ; If no change in bit 21, CPUID unsupported
+
+    ; CPUID is supported
+    MOV ax, 0              ; CPUID function 0 (vendor string)
+    cpuid
+    MOV word [vendor+0], bx
+    MOV word [vendor+2], dx
+    MOV word [vendor+4], cx
+    MOV si, vendor_msg
+    call print_string
+    MOV si, vendor
+    call print_string
+    jmp display_menu
+
+no_cpuid:
+    MOV si, no_cpuid_msg
+    call print_string
     jmp display_menu
 
 screen_info:
@@ -98,3 +126,22 @@ print_char:
     MOV ah, 0x0E          ; BIOS teletype function
     int 0x10
     RET
+
+; Menu and message strings
+menu_msg db "++ BOOTER ++", 0x0D, 0x0A
+         db "1. About OS", 0x0D, 0x0A
+         db "2. System Information", 0x0D, 0x0A
+         db "3. Screen Information", 0x0D, 0x0A
+         db "4. Shutdown", 0x0D, 0x0A, 0
+about_msg db "This is a simple OS bootloader created for learning purposes. | Morteza Hosseini", 0x0D, 0x0A, 0
+sys_info_msg db "System Info:", 0x0D, 0x0A, 0
+no_cpuid_msg db "CPUID not supported on this CPU.", 0x0D, 0x0A, 0
+vendor_msg db "CPU Vendor: ", 0
+screen_info_msg db "Screen Information:", 0x0D, 0x0A, 0
+video_mode_msg db "Video Mode: ", 0
+linefeed_msg db 0x0D, 0x0A, 0
+
+vendor db "Unknown", 0, 0, 0, 0, 0, 0
+
+times 510-($-$$) db 0     ; Pad the boot sector to 512 bytes
+dw 0xAA55                 ; Boot signature
